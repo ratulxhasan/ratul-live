@@ -1,1 +1,97 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📺 Ratul Live TV</title>
+  <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
+  <style>
+    body {
+      background: #000;
+      color: white;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      margin-top: 0;
+      color: #f50057;
+    }
+    #player {
+      width: 100%;
+      height: 400px;
+      background: black;
+      margin-bottom: 20px;
+    }
+    .channel {
+      cursor: pointer;
+      margin: 5px 0;
+      padding: 8px;
+      background: #222;
+      border-radius: 6px;
+      transition: 0.2s;
+    }
+    .channel:hover {
+      background: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📺 Ratul Live TV</h2>
+  <div id="player"></div>
+  <div id="channels"></div>
+
+  <script>
+    const proxy = '/api/stream?url=';
+    const m3uUrl = 'https://allinonereborn.fun/tplay1025.m3u'; // তোমার M3U লিংক
+
+    async function loadM3U() {
+      const text = await (await fetch(proxy + encodeURIComponent(m3uUrl))).text();
+      const lines = text.split('\n');
+      const channels = [];
+      let current = {};
+
+      for (let line of lines) {
+        if (line.startsWith('#EXTINF')) {
+          current.name = line.split(',')[1] || 'Unnamed';
+        } else if (line.startsWith('http')) {
+          current.url = line.trim();
+          channels.push({...current});
+          current = {};
+        }
+      }
+
+      renderChannels(channels);
+    }
+
+    function renderChannels(channels) {
+      const list = document.getElementById('channels');
+      list.innerHTML = '';
+      channels.forEach(ch => {
+        const div = document.createElement('div');
+        div.className = 'channel';
+        div.innerText = ch.name;
+        div.onclick = () => loadPlayer(ch.url);
+        list.appendChild(div);
+      });
+
+      if (channels[0]) loadPlayer(channels[0].url); // auto-play first
+    }
+
+    function loadPlayer(url) {
+      document.getElementById('player').innerHTML = '';
+      new Clappr.Player({
+        source: proxy + encodeURIComponent(url),
+        parentId: '#player',
+        autoPlay: true,
+        width: '100%',
+        height: '100%',
+      });
+    }
+
+    loadM3U();
+  </script>
+</body>
+</html>
