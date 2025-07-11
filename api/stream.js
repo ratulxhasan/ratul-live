@@ -19,11 +19,9 @@ export default async function handler(req, res) {
       return res.status(response.status).send('Failed to fetch stream');
     }
 
-    // Set content-type from upstream response
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Stream the response body to client
     response.body.pipe(res);
   } catch (error) {
     res.status(500).send('Proxy error: ' + error.message);
