@@ -20,8 +20,8 @@ module.exports = (req, res) => {
     client.get(url, options, (response) => {
       const { statusCode, headers } = response;
 
+      // Redirect হলে ফলো করো
       if (statusCode >= 300 && statusCode < 400 && headers.location) {
-        console.log('🔁 Redirecting to:', headers.location);
         return module.exports({ query: { url: headers.location } }, res);
       }
 
@@ -30,7 +30,6 @@ module.exports = (req, res) => {
 
       response.pipe(res);
     }).on('error', (e) => {
-      console.error('❌ Proxy error:', e.message);
       res.status(500).send('Proxy error: ' + e.message);
     });
   } catch (err) {
