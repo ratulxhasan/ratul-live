@@ -10,29 +10,18 @@ module.exports = (req, res) => {
     const parsedUrl = new URL(url);
     const client = parsedUrl.protocol === 'https:' ? https : http;
 
-    const options = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Referer': url,
-      },
-    };
-
-    client.get(url, options, (response) => {
-      const { statusCode, headers } = response;
-
-      // Redirect হলে ফলো করো
-      if (statusCode >= 300 && statusCode < 400 && headers.location) {
-        return module.exports({ query: { url: headers.location } }, res);
+    client.get(parsedUrl, (response) => {
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        return module.exports({ query: { url: response.headers.location } }, res);
       }
 
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', headers['content-type'] || 'text/plain');
-
+      res.setHeader('Content-Type', response.headers['content-type'] || 'text/plain');
       response.pipe(res);
-    }).on('error', (e) => {
-      res.status(500).send('Proxy error: ' + e.message);
+    }).on('error', (err) => {
+      res.status(500).send("Proxy error: " + err.message);
     });
-  } catch (err) {
-    res.status(500).send('❌ Invalid URL or server error');
+  } catch {
+    res.status(500).send("Invalid URL");
   }
 };
