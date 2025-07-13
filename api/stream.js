@@ -1,29 +1,32 @@
-import fetch from 'node-fetch';
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
 
-export default async function handler(req, res) {
+module.exports = (req, res) => {
   const { url } = req.query;
+
   if (!url) {
-    res.status(400).send("Missing 'url' query.");
+    res.status(400).send("Missing 'url' parameter");
     return;
   }
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Referer': url
-      }
-    });
+  const parsedUrl = new URL(url);
+  const client = parsedUrl.protocol === 'https:' ? https : http;
 
-    if (!response.ok) {
-      return res.status(response.status).send('Failed to fetch stream');
+  const options = {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      'Referer': url
     }
+  };
 
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+  client.get(url, options, (proxyRes) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'application/octet-stream');
 
-    response.body.pipe(res);
-  } catch (error) {
-    res.status(500).send('Proxy error: ' + error.message);
-  }
-}
+    proxyRes.pipe(res);
+  }).on('error', (err) => {
+    console.error('Proxy Error:', err.message);
+    res.status(500).send('Proxy error: ' + err.message);
+  });
+};
