@@ -3,92 +3,158 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>XTREAM IPTV Player</title>
+  <title>Allinone IPTV</title>
   <style>
-    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#111; color:#eee; }
-    #channels { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; max-height: 300px; overflow-y: auto; }
-    .channel { background: #222; padding: 10px; border-radius: 5px; cursor: pointer; flex: 1 0 150px; text-align: center; }
-    .channel:hover { background: #444; }
-    video { width: 100%; max-height: 400px; background: black; margin-top: 10px; }
-    #search { margin: 10px; padding: 10px; width: calc(100% - 40px); border-radius: 5px; border: none; font-size: 16px; }
+    body { background: #111; color: #fff; margin: 0; font-family: sans-serif; }
+    h1 { text-align: center; margin-top: 10px; }
+    #search { margin: 10px auto; display: block; padding: 10px; width: 90%; border-radius: 5px; font-size: 16px; }
+    #categories { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px; }
+    .cat-btn {
+      background: #222; padding: 6px 12px; border-radius: 5px;
+      cursor: pointer; font-size: 14px;
+    }
+    .cat-btn.active { background: #00c3ff; color: #000; font-weight: bold; }
+    #channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 10px; }
+    .channel {
+      background: #222; border-radius: 8px; padding: 10px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      transition: 0.3s;
+    }
+    .channel:hover { background: #333; }
+    .channel img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 6px; }
+    .channel-name { text-align: center; font-size: 14px; word-break: break-word; }
+    video { width: 100%; max-height: 400px; margin-top: 10px; background: black; }
   </style>
 </head>
 <body>
 
-<input type="text" id="search" placeholder="Search channels..." />
+<h1>📺 Allinone_Reborn IPTV</h1>
+<input id="search" placeholder="🔍 Search channels..." />
 
-<div id="channels">Loading channels...</div>
-
+<div id="categories"></div>
+<div id="channels">Loading...</div>
 <video id="player" controls autoplay></video>
 
 <script>
-  const username = 'mah123';
-  const password = 'mah123';
-  const baseURL = 'http://starshare.fun';
+const m3uURL = "http://starshare.fun/get.php?username=mah123&password=mah123&type=m3u_plus&output=m3u8";
+const proxyURL = "/api/proxy?url=" + encodeURIComponent(m3uURL);
+const player = document.getElementById('player');
+const channelsDiv = document.getElementById('channels');
+const searchInput = document.getElementById('search');
+const categoriesDiv = document.getElementById('categories');
 
-  const channelsDiv = document.getElementById('channels');
-  const player = document.getElementById('player');
-  const searchInput = document.getElementById('search');
+let channels = [];
+let currentCategory = 'All';
 
-  let channels = [];
-
-  async function fetchChannels() {
-    const url = `${baseURL}/get.php?username=${username}&password=${password}&type=m3u_plus&output=m3u8`;
-    const proxyURL = '/api/proxy?url=' + encodeURIComponent(url);
-
-    try {
-      const res = await fetch(proxyURL);
-      if (!res.ok) throw new Error('Failed to fetch channel list');
-
-      const text = await res.text();
-      parseM3U(text);
-    } catch (err) {
-      channelsDiv.innerHTML = 'Error loading channels: ' + err.message;
+function parseM3U(data) {
+  const lines = data.split('\n');
+  let result = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXTINF')) {
+      const info = lines[i];
+      const url = lines[i + 1]?.trim();
+      const name = info.split(',')[1]?.trim() || 'Unknown';
+      const logoMatch = info.match(/tvg-logo="(.*?)"/);
+      const logo = logoMatch ? logoMatch[1] : '';
+      const groupMatch = info.match(/group-title="(.*?)"/);
+      const category = groupMatch ? groupMatch[1] : 'Others';
+      if (url) result.push({ name, url, logo, category });
+      i++;
     }
   }
+  return result;
+}
 
-  function parseM3U(data) {
-    channels = [];
-    const lines = data.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('#EXTINF')) {
-        let info = lines[i];
-        let url = lines[i + 1]?.trim();
-        let name = info.split(',')[1]?.trim() || 'Unknown';
-        if (url) {
-          channels.push({ name, url });
-        }
-        i++;
-      }
-    }
-    displayChannels(channels);
+function saveToCache(data) {
+  localStorage.setItem('xtream_cache', JSON.stringify(data));
+  localStorage.setItem('xtream_cache_time', Date.now());
+}
+
+function loadFromCache() {
+  const data = localStorage.getItem('xtream_cache');
+  const time = localStorage.getItem('xtream_cache_time');
+  if (data && time && (Date.now() - time < 1000 * 60 * 10)) {
+    return JSON.parse(data);
   }
+  return null;
+}
 
-  function displayChannels(list) {
-    if (list.length === 0) {
-      channelsDiv.innerHTML = 'No channels found.';
-      return;
-    }
-    channelsDiv.innerHTML = '';
-    list.forEach(ch => {
-      const div = document.createElement('div');
-      div.className = 'channel';
-      div.textContent = ch.name;
-      div.onclick = () => {
-        player.src = ch.url;
-        player.play();
-      };
-      channelsDiv.appendChild(div);
-    });
-  }
-
-  searchInput.addEventListener('input', () => {
-    const query = searchInput.value.toLowerCase();
-    const filtered = channels.filter(ch => ch.name.toLowerCase().includes(query));
-    displayChannels(filtered);
+function displayCategories() {
+  const categories = ['All', ...new Set(channels.map(ch => ch.category))];
+  categoriesDiv.innerHTML = '';
+  categories.forEach(cat => {
+    const btn = document.createElement('div');
+    btn.className = 'cat-btn' + (cat === currentCategory ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = () => {
+      currentCategory = cat;
+      displayChannels();
+      displayCategories();
+    };
+    categoriesDiv.appendChild(btn);
   });
+}
 
-  fetchChannels();
+function displayChannels() {
+  let filtered = channels;
+  const query = searchInput.value.toLowerCase();
+  if (currentCategory !== 'All') {
+    filtered = filtered.filter(ch => ch.category === currentCategory);
+  }
+  if (query) {
+    filtered = filtered.filter(ch => ch.name.toLowerCase().includes(query));
+  }
+
+  channelsDiv.innerHTML = '';
+  if (filtered.length === 0) {
+    channelsDiv.innerHTML = '<p style="text-align:center;">No channels found.</p>';
+    return;
+  }
+
+  filtered.forEach(ch => {
+    const div = document.createElement('div');
+    div.className = 'channel';
+    div.onclick = () => {
+      player.src = ch.url;
+      player.play();
+    };
+
+    const img = document.createElement('img');
+    img.src = ch.logo || 'https://via.placeholder.com/80?text=TV';
+    div.appendChild(img);
+
+    const name = document.createElement('div');
+    name.className = 'channel-name';
+    name.textContent = ch.name;
+    div.appendChild(name);
+
+    channelsDiv.appendChild(div);
+  });
+}
+
+function init() {
+  const cache = loadFromCache();
+  if (cache) {
+    channels = cache;
+    displayCategories();
+    displayChannels();
+  } else {
+    fetch(proxyURL)
+      .then(res => res.text())
+      .then(data => {
+        channels = parseM3U(data);
+        saveToCache(channels);
+        displayCategories();
+        displayChannels();
+      })
+      .catch(() => {
+        channelsDiv.innerHTML = '<p style="text-align:center;">❌ Failed to load channels</p>';
+      });
+  }
+}
+
+searchInput.addEventListener('input', displayChannels);
+init();
 </script>
 
 </body>
