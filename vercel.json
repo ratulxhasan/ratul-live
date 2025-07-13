@@ -1,11 +1,11 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/stream.js", "use": "@vercel/node" },
+    { "src": "api/resolve.js", "use": "@vercel/node" },
     { "src": "public/index.html", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/api/stream", "dest": "/api/stream.js" },
+    { "src": "/api/resolve", "dest": "/api/resolve.js" },
     { "src": "/(.*)", "dest": "/public/index.html" }
   ]
 }
